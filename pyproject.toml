@@ -1,0 +1,11 @@
+[project]
+name = "uss-yamaguchi"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pygame>=2.6.1",
+    "pyopengl>=3.1.10",
+    "pyopengl-accelerate>=3.1.10",
+]
