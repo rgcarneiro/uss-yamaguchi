@@ -25,4 +25,4 @@ A window will open displaying the USS Yamaguchi rotating in space, with simple l
 
 ## Preview
 
-![preview](docs/preview.png))
+![preview](docs/preview.png)
