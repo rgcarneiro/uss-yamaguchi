@@ -107,6 +107,42 @@ def draw_nacelle(length, radius, slices):
         glEnd()
 
 
+def draw_nacelle_with_lights(position, length, radius, slices, front_color, back_color):
+    """Draw a nacelle and its lights at the given position.
+
+    Args:
+        position (tuple[float, float, float]): Translation coordinates for the
+            nacelle's base (x, y, z).
+        length (float): Length of the nacelle along the z-axis.
+        radius (float): Radius used for the nacelle body and lights.
+        slices (int): Number of slices used to approximate circular geometry.
+        front_color (tuple[float, float, float]): RGB color for the nacelle's
+            front light.
+        back_color (tuple[float, float, float]): RGB color for the nacelle's
+            back light.
+    """
+
+    x_pos, y_pos, z_pos = position
+
+    glPushMatrix()
+    glColor3f(0.5, 0.5, 0.5)
+    glTranslatef(x_pos, y_pos, z_pos)
+    draw_nacelle(length, radius, slices)
+    glPopMatrix()
+
+    glPushMatrix()
+    glColor3f(*back_color)
+    glTranslatef(x_pos, y_pos, z_pos)
+    draw_circle(radius, 100, 0)
+    glPopMatrix()
+
+    glPushMatrix()
+    glColor3f(*front_color)
+    glTranslatef(x_pos, y_pos, z_pos + length)
+    draw_circle(radius, 100, 0)
+    glPopMatrix()
+
+
 def draw_plank(x, y, z):
     glBegin(GL_QUADS)
     glVertex3f(x, -y, -z)
@@ -314,61 +350,34 @@ def draw_yamaguchi(colors_blue, colors_red):
     #   LEFT NACELLE
     # =========================================================================
 
-    glPushMatrix()
-    glColor3f(0.5, 0.5, 0.5)
-    glTranslatef(-3, 3, -5.5)
-    draw_nacelle(6, 0.5, 20)
-    glPopMatrix()
+    nacelles = [
+        {
+            "position": (-3, 3, -5.5),
+            "length": 6,
+            "radius": 0.5,
+            "slices": 20,
+            "front_color": tuple(colors_red),
+            "back_color": tuple(colors_blue),
+        },
+        {
+            "position": (3, 3, -5.5),
+            "length": 6,
+            "radius": 0.5,
+            "slices": 20,
+            "front_color": tuple(colors_red),
+            "back_color": tuple(colors_blue),
+        },
+    ]
 
-    # =========================================================================
-    #   LEFT NACELLE ENGINE BACKLIGHT
-    # =========================================================================
-
-    glPushMatrix()
-    glColor3f(colors_blue[0], colors_blue[1], colors_blue[2])
-    glTranslatef(-3, 3, -5.5)
-    draw_circle(0.5, 100, 0)
-    glPopMatrix()
-
-    # =========================================================================
-    #   LEFT NACELLE ENGINE FRONTLIGHT
-    # =========================================================================
-
-    glPushMatrix()
-    glColor3f(colors_red[0], colors_red[1], colors_red[2])
-    glTranslatef(-3, 3, 0.5)
-    draw_circle(0.5, 100, 0)
-    glPopMatrix()
-
-    # =========================================================================
-    #   RIGHT NACELLE
-    # =========================================================================
-
-    glPushMatrix()
-    glColor3f(0.5, 0.5, 0.5)
-    glTranslatef(3, 3, -5.5)
-    draw_nacelle(6, 0.5, 20)
-    glPopMatrix()
-
-    # =========================================================================
-    #   RIGHT NACELLE ENGINE BACKLIGHT
-    # =========================================================================
-
-    glPushMatrix()
-    glColor3f(colors_blue[0], colors_blue[1], colors_blue[2])
-    glTranslatef(3, 3, -5.5)
-    draw_circle(0.5, 100, 0)
-    glPopMatrix()
-
-    # =========================================================================
-    #   RIGHT NACELLE ENGINE FRONTLIGHT
-    # =========================================================================
-
-    glPushMatrix()
-    glColor3f(colors_red[0], colors_red[1], colors_red[2])
-    glTranslatef(3, 3, 0.5)
-    draw_circle(0.5, 100, 0)
-    glPopMatrix()
+    for nacelle in nacelles:
+        draw_nacelle_with_lights(
+            nacelle["position"],
+            nacelle["length"],
+            nacelle["radius"],
+            nacelle["slices"],
+            nacelle["front_color"],
+            nacelle["back_color"],
+        )
 
     # =========================================================================
     #   HORIZONTAL PLANK
