@@ -2,12 +2,67 @@ import math
 import random
 import sys
 import time
+from dataclasses import dataclass
 from functools import partial
 
 import pygame
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
+
+
+@dataclass(frozen=True)
+class CameraConfig:
+    """Camera projection and orbital parameters.
+
+    Attributes:
+        fov (float): Field of view in degrees for the perspective projection.
+        aspect_ratio (float): Window width divided by height.
+        near_plane (float): Near clipping plane distance in coordinate units.
+        far_plane (float): Far clipping plane distance in coordinate units.
+        look_at_eye (tuple[float, float, float]): Camera position in world space.
+        look_at_center (tuple[float, float, float]): Target point the camera faces.
+        look_at_up (tuple[float, float, float]): Up vector used for orientation.
+        camera_radius (float): Distance of the orbiting camera from the origin.
+    """
+
+    fov: float = 50.0
+    aspect_ratio: float = 1000 / 650
+    near_plane: float = 1.0
+    far_plane: float = 200.0
+    look_at_eye: tuple[float, float, float] = (8.25, -12.25, 20.0)
+    look_at_center: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    look_at_up: tuple[float, float, float] = (-0.07, 1.0, 0.0)
+    camera_radius: float = 25.0
+
+
+@dataclass(frozen=True)
+class AccelerationConfig:
+    """Timing and motion thresholds used during the animation.
+
+    All values are expressed in seconds or units consistent with the scene's
+    coordinate system.
+    """
+
+    acceleration_duration: float = 12.0
+    angle_start_time: float = 3.0
+    color_change_time: float = 15.0
+    warp_time: float = 28.0
+    angle_increment_deg: float = 0.2
+    max_angle_deg: float = 520.0
+    acceleration_increment: float = 0.1
+    position_scale: float = 0.01
+    warp_reset_threshold: float = 10.0
+    timer_interval_ms: int = 16
+
+
+@dataclass(frozen=True)
+class ColorPalette:
+    """Default hull and lighting colors using normalized RGB values."""
+
+    nacelle_blue: tuple[float, float, float] = (0.5, 0.7, 0.9)
+    nacelle_red: tuple[float, float, float] = (0.9, 0.2, 0.4)
+    background: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
 def draw_disc():
@@ -412,32 +467,42 @@ def draw_yamaguchi(colors_blue, colors_red):
     glPopMatrix()
 
 class SceneState:
-    def __init__(self):
+    def __init__(
+        self,
+        camera_config: CameraConfig = CameraConfig(),
+        acceleration_config: AccelerationConfig = AccelerationConfig(),
+        colors: ColorPalette = ColorPalette(),
+    ):
         self.initial_position = [-2, -1, -3]
-        self.camera_radius = 25
+        self.camera_config = camera_config
+        self.acceleration = acceleration_config
         self.angle = 0
 
         self.z_position = 0
         self.speed = 0
         self.velocity = 0
         self.start_time = None
-        self.colors_blue = [0.5, 0.7, 0.9]
-        self.colors_red = [0.9, 0.2, 0.4]
+        self.colors_blue = list(colors.nacelle_blue)
+        self.colors_red = list(colors.nacelle_red)
 
     def accelerate(self, value):
         if self.start_time is None:
             self.start_time = time.time()
         elapsed_time = time.time() - self.start_time
 
-        if elapsed_time < 12:
-            self.speed += 0.1
+        if elapsed_time < self.acceleration.acceleration_duration:
+            self.speed += self.acceleration.acceleration_increment
 
-        self.z_position -= self.speed * 0.01
+        self.z_position -= self.speed * self.acceleration.position_scale
         glutPostRedisplay()
-        glutTimerFunc(16, partial(SceneState.accelerate, self), 0)
+        glutTimerFunc(
+            self.acceleration.timer_interval_ms,
+            partial(SceneState.accelerate, self),
+            0,
+        )
 
     def animation_camera(self):
-        glTranslatef(0, 0, -self.camera_radius)
+        glTranslatef(0, 0, -self.camera_config.camera_radius)
         glRotatef(self.angle, -1, 1, 1)
 
     def display(self):
@@ -463,12 +528,12 @@ class SceneState:
             self.start_time = time.time()
         elapsed_time = time.time() - self.start_time
 
-        if elapsed_time > 3:
-            self.angle += 0.2
-            if self.angle > 520:
-                self.angle = 520
+        if elapsed_time > self.acceleration.angle_start_time:
+            self.angle += self.acceleration.angle_increment_deg
+            if self.angle > self.acceleration.max_angle_deg:
+                self.angle = self.acceleration.max_angle_deg
 
-        if elapsed_time > 15:
+        if elapsed_time > self.acceleration.color_change_time:
             self.colors_blue[0] = random.uniform(0, 1)
             self.colors_blue[1] = random.uniform(0, 1)
             self.colors_blue[2] = random.uniform(0, 1)
@@ -476,39 +541,58 @@ class SceneState:
             self.colors_red[1] = random.uniform(0, 1)
             self.colors_red[2] = random.uniform(0, 1)
 
-        if elapsed_time > 28:
+        if elapsed_time > self.acceleration.warp_time:
             self.velocity += self.speed
             self.initial_position[0] += self.velocity
             self.initial_position[1] = 0
             self.initial_position[2] = 0
 
-            if self.initial_position[0] > 10:
-                self.initial_position[0] = 100
+            if self.initial_position[0] > self.acceleration.warp_reset_threshold:
+                self.initial_position[0] = self.acceleration.warp_reset_threshold * 10
                 self.velocity = 0
 
         return
 
 
+CLEAR_COLOR_ALPHA = 1.0
+
+
 def main():
-    scene = SceneState()
+    camera_config = CameraConfig()
+    acceleration_config = AccelerationConfig()
+    color_palette = ColorPalette()
+    scene = SceneState(camera_config, acceleration_config, color_palette)
 
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1280, 720)
     glutInitWindowPosition(0, 0)
     glutCreateWindow("USS YAMAGUCHI")
-    glClearColor(0.0, 0.0, 0, 1)
+    glClearColor(*color_palette.background, CLEAR_COLOR_ALPHA)
     glShadeModel(GL_SMOOTH)
     glFrontFace(GL_CCW)
     glEnable(GL_DEPTH_TEST)
 
     glutDisplayFunc(partial(SceneState.display, scene))
-    glutTimerFunc(16, partial(SceneState.accelerate, scene), 0)
+    glutTimerFunc(
+        scene.acceleration.timer_interval_ms,
+        partial(SceneState.accelerate, scene),
+        0,
+    )
 
     glMatrixMode(GL_PROJECTION)
-    gluPerspective(50, (1000 / 650), 1, 200)
+    gluPerspective(
+        camera_config.fov,
+        camera_config.aspect_ratio,
+        camera_config.near_plane,
+        camera_config.far_plane,
+    )
     glMatrixMode(GL_MODELVIEW)
-    gluLookAt(8.25, -12.25, 20, 0, 0, 0, -0.07, 1, 0)
+    gluLookAt(
+        *camera_config.look_at_eye,
+        *camera_config.look_at_center,
+        *camera_config.look_at_up,
+    )
     glPushMatrix()
     glutMainLoop()
 
