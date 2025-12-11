@@ -65,6 +65,11 @@ class ColorPalette:
     background: tuple[float, float, float] = (0.0, 0.0, 0.0)
 
 
+STAR_BACK_RANGE = ((-100, 100), (-100, 100), (-300, -50))
+STAR_MIDDLE_RANGE = ((-50, 50), (-50, 50), (-25, 150))
+STAR_FRONT_RANGE = ((-100, 100), (-100, 100), (50, 300))
+
+
 def draw_disc():
     y_axis = 7.0
     radius = 5.0
@@ -276,29 +281,32 @@ def draw_solid_sphere(radius, slices, stacks):
 
 def draw_stars():
     num_stars = 600
+    # Distant background stars: wide dispersion with deep negative z to sit far behind the ship.
     stars_back = [
         (
-            random.uniform(-100, 100),
-            random.uniform(-100, 100),
-            random.uniform(-300, -50),
+            random.uniform(*STAR_BACK_RANGE[0]),
+            random.uniform(*STAR_BACK_RANGE[1]),
+            random.uniform(*STAR_BACK_RANGE[2]),
         )
         for _ in range(num_stars)
     ]
 
+    # Mid-layer stars: balanced spread near the origin to bridge back and front layers.
     stars_middle = [
         (
-            random.uniform(50, -50),
-            random.uniform(-50, 50),
-            random.uniform(150, -25),
+            random.uniform(*STAR_MIDDLE_RANGE[0]),
+            random.uniform(*STAR_MIDDLE_RANGE[1]),
+            random.uniform(*STAR_MIDDLE_RANGE[2]),
         )
         for _ in range(num_stars)
     ]
 
+    # Foreground stars: tighter clustering with positive z to feel close to the viewer.
     stars_front = [
         (
-            random.uniform(100, -100),
-            random.uniform(100, -100),
-            random.uniform(300, 50),
+            random.uniform(*STAR_FRONT_RANGE[0]),
+            random.uniform(*STAR_FRONT_RANGE[1]),
+            random.uniform(*STAR_FRONT_RANGE[2]),
         )
         for _ in range(num_stars)
     ]
