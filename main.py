@@ -2,22 +2,12 @@ import math
 import random
 import sys
 import time
+from functools import partial
 
 import pygame
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
-
-initial_position = [-2, -1, -3]
-camera_radius = 25
-angle = 0
-
-z_position = 0
-speed = 0
-velocity = 0
-start_time = None
-colors_blue = [0.5, 0.7, 0.9]
-colors_red = [0.9, 0.2, 0.4]
 
 
 def draw_disc():
@@ -235,7 +225,7 @@ def draw_stars():
     glEnd()
 
 
-def draw_yamaguchi():
+def draw_yamaguchi(colors_blue, colors_red):
     # =========================================================================
     #   UPPER PART DISC
     # =========================================================================
@@ -412,78 +402,87 @@ def draw_yamaguchi():
     draw_plank(1.5, 0.25, 0.25)
     glPopMatrix()
 
+class SceneState:
+    def __init__(self):
+        self.initial_position = [-2, -1, -3]
+        self.camera_radius = 25
+        self.angle = 0
 
-def accelerate(value):
-    global z_position, speed, start_time
+        self.z_position = 0
+        self.speed = 0
+        self.velocity = 0
+        self.start_time = None
+        self.colors_blue = [0.5, 0.7, 0.9]
+        self.colors_red = [0.9, 0.2, 0.4]
 
-    if start_time is None:
-        start_time = time.time()
-    elapsed_time = time.time() - start_time
+    def accelerate(self, value):
+        if self.start_time is None:
+            self.start_time = time.time()
+        elapsed_time = time.time() - self.start_time
 
-    if elapsed_time < 12:
-        speed += 0.1
+        if elapsed_time < 12:
+            self.speed += 0.1
 
-    z_position -= speed * 0.01
-    glutPostRedisplay()
-    glutTimerFunc(16, accelerate, 0)
+        self.z_position -= self.speed * 0.01
+        glutPostRedisplay()
+        glutTimerFunc(16, partial(SceneState.accelerate, self), 0)
 
+    def animation_camera(self):
+        glTranslatef(0, 0, -self.camera_radius)
+        glRotatef(self.angle, -1, 1, 1)
 
-def animation_camera():
-    global angle
+    def display(self):
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glLoadIdentity()
+        self.animation_camera()
 
-    glTranslatef(0, 0, -camera_radius)
-    glRotatef(angle, -1, 1, 1)
+        glPushMatrix()
+        glRotatef(30, 1, 1, 0)
+        glTranslatef(
+            self.initial_position[0],
+            self.initial_position[1],
+            self.initial_position[2],
+        )
 
+        draw_yamaguchi(self.colors_blue, self.colors_red)
+        draw_stars()
 
-def display():
-    global angle, z_position, speed, start_time
-    global initial_position, velocity, colors_blue, colors_red
+        glPopMatrix()
+        glutSwapBuffers()
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glLoadIdentity()
-    animation_camera()
+        if self.start_time is None:
+            self.start_time = time.time()
+        elapsed_time = time.time() - self.start_time
 
-    glPushMatrix()
-    glRotatef(30, 1, 1, 0)
-    glTranslatef(initial_position[0], initial_position[1], initial_position[2])
+        if elapsed_time > 3:
+            self.angle += 0.2
+            if self.angle > 520:
+                self.angle = 520
 
-    draw_yamaguchi()
-    draw_stars()
+        if elapsed_time > 15:
+            self.colors_blue[0] = random.uniform(0, 1)
+            self.colors_blue[1] = random.uniform(0, 1)
+            self.colors_blue[2] = random.uniform(0, 1)
+            self.colors_red[0] = random.uniform(0, 1)
+            self.colors_red[1] = random.uniform(0, 1)
+            self.colors_red[2] = random.uniform(0, 1)
 
-    glPopMatrix()
-    glutSwapBuffers()
+        if elapsed_time > 28:
+            self.velocity += self.speed
+            self.initial_position[0] += self.velocity
+            self.initial_position[1] = 0
+            self.initial_position[2] = 0
 
-    if start_time is None:
-        start_time = time.time()
-    elapsed_time = time.time() - start_time
+            if self.initial_position[0] > 10:
+                self.initial_position[0] = 100
+                self.velocity = 0
 
-    if elapsed_time > 3:
-        angle += 0.2
-        if angle > 520:
-            angle = 520
-
-    if elapsed_time > 15:
-        colors_blue[0] = random.uniform(0, 1)
-        colors_blue[1] = random.uniform(0, 1)
-        colors_blue[2] = random.uniform(0, 1)
-        colors_red[0] = random.uniform(0, 1)
-        colors_red[1] = random.uniform(0, 1)
-        colors_red[2] = random.uniform(0, 1)
-
-    if elapsed_time > 28:
-        velocity += speed
-        initial_position[0] += velocity
-        initial_position[1] = 0
-        initial_position[2] = 0
-
-        if initial_position[0] > 10:
-            initial_position[0] = 100
-            velocity = 0
-
-    return
+        return
 
 
 def main():
+    scene = SceneState()
+
     glutInit(sys.argv)
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
     glutInitWindowSize(1280, 720)
@@ -494,8 +493,8 @@ def main():
     glFrontFace(GL_CCW)
     glEnable(GL_DEPTH_TEST)
 
-    glutDisplayFunc(display)
-    glutTimerFunc(16, accelerate, 0)
+    glutDisplayFunc(partial(SceneState.display, scene))
+    glutTimerFunc(16, partial(SceneState.accelerate, scene), 0)
 
     glMatrixMode(GL_PROJECTION)
     gluPerspective(50, (1000 / 650), 1, 200)
